@@ -1,0 +1,143 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{amsmath,amssymb,booktabs,array,listings,hyperref}
+\hypersetup{hidelinks}
+\setlength{\parskip}{0.35em}
+
+\begin{document}
+
+\begin{titlepage}
+\centering
+{\large\textbf{UNIVERSITÉ DE KINSHASA}}\\[0.3cm]
+{\large\textbf{FACULTÉ DES SCIENCES ET TECHNOLOGIES}}\\[0.3cm]
+{\normalsize MASTER 1, MATHÉMATIQUES, STATISTIQUE ET INFORMATIQUE (MSI)}\\[2cm]
+{\Large\textbf{TRAVAUX PRATIQUES -- SCIENCE DES DONNÉES}}\\[1.5cm]
+\rule{\textwidth}{0.5pt}\\[0.5cm]
+{\Huge\bfseries IMPLÉMENTATION DE L'ALGORITHME\\[0.3cm] DES NUÉES DYNAMIQUES}\\[0.3cm]
+{\large (FROM SCRATCH)}\\[0.5cm]
+\rule{\textwidth}{0.5pt}
+\vfill
+\begin{flushleft}
+\large\textbf{Présenté par :}\\[0.3cm]
+\textbf{NYENGELE LUAKABWANGA ISRAËL}
+\end{flushleft}
+\vfill
+{\large SEPTEMBRE 2026}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Introduction}
+La méthode des Nuées Dynamiques a été proposée par Edwin Diday en 1971 comme une méthode de classification automatique fondée sur des groupes représentés par plusieurs étalons et mis à jour de façon itérative \cite{diday1971}. Le principe général consiste à calculer la proximité entre chaque observation et les représentants des classes, former une partition puis reconstruire les représentants.
+
+Le présent travail fournit une implémentation \emph{from scratch} en Python. L'objectif est de préserver ce cadre général tout en proposant une résolution différente : standardisation optionnelle, initialisation maximin, plusieurs redémarrages, réparation explicite des classes vides et cinq formes de représentation des classes.
+
+\section{Fondements théoriques}
+Soit $E=\{x_1,\ldots,x_N\}$ l'ensemble des observations et $K$ le nombre de classes. Chez Diday, chaque classe possède un ensemble représentatif $E_k$ et une fonction de proximité $D(x,E_k)$ \cite{diday1971}. L'algorithme alterne entre affectation des observations aux classes et amélioration des représentants.
+
+L'intérêt de plusieurs étalons est notamment de pouvoir décrire des formes allongées ou non sphériques qu'un unique centre de gravité résumerait mal \cite{diday1971}. Lorsque la représentation est réduite à un centroïde, on retrouve le schéma associé aux méthodes de type k-means \cite{macqueen1967,lloyd1982}.
+
+\section{Résolution alternative proposée}
+Cette implémentation suit les étapes suivantes :
+\begin{enumerate}
+\item standardisation z-score des variables si l'option est activée ;
+\item sélection initiale de graines par stratégie maximin, apparentée au parcours farthest-first de Gonzalez \cite{gonzalez1985} ;
+\item construction d'un représentant pour chaque classe ;
+\item calcul d'une matrice de coûts observation-classe ;
+\item affectation de chaque observation au coût minimal ;
+\item réparation des classes vides en déplaçant un point du plus grand groupe ;
+\item reconstruction des représentants ;
+\item arrêt lorsque les affectations se stabilisent ou que la variation relative de l'objectif devient faible ;
+\item répétition sur plusieurs initialisations et conservation du meilleur résultat.
+\end{enumerate}
+
+\section{Représentations disponibles}
+\subsection{Point / centroïde}
+Chaque classe est représentée par
+\[
+\mu_k=\frac{1}{|C_k|}\sum_{x\in C_k}x,
+\]
+avec le coût
+\[
+d_k(x)=\|x-\mu_k\|_2^2.
+\]
+Ce mode correspond au cas ponctuel classique \cite{macqueen1967,lloyd1982}.
+
+\subsection{Ensemble de points représentatifs}
+Le premier prototype est choisi comme médoïde empirique, puis les prototypes suivants sont ajoutés selon une stratégie maximin inspirée de Gonzalez \cite{gonzalez1985}. Le coût d'un point est la moyenne des $q$ plus petites distances au carré vers les prototypes de la classe.
+
+\subsection{Axes factoriels}
+Pour chaque classe, le programme calcule un centre, une matrice de covariance puis les directions propres principales. Le coût est la distance orthogonale au sous-espace principal. Cette idée est reliée historiquement aux travaux de Pearson sur les axes de meilleur ajustement \cite{pearson1901}.
+
+\subsection{Distribution}
+Chaque classe est représentée par une gaussienne à covariance diagonale. Le coût utilisé correspond à une forme de moins deux log-vraisemblance, avec régularisation minimale de la variance \cite{bishop2006}.
+
+\subsection{Structure robuste}
+La représentation repose sur la médiane, le premier quartile, le troisième quartile et l'écart interquartile, statistiques robustes classiques \cite{tukey1977}. Cette structure utilise un coût de type $L_1$ normalisé et une pénalité hors de la boîte interquartile élargie.
+
+\section{Évaluation}
+La qualité des partitions est évaluée avec la silhouette de Rousseeuw \cite{rousseeuw1987}. Lorsque les étiquettes génératrices des données synthétiques sont disponibles, l'Adjusted Rand Index de Hubert et Arabie est également calculé \cite{hubert1985}.
+
+Les résultats obtenus sur le jeu synthétique fourni sont les suivants :
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Représentation & Itérations & Objectif & Silhouette & ARI\\
+\midrule
+Point & 6 & 66.080 & 0.706 & 0.946\\
+Points & 7 & 56.947 & 0.669 & 0.856\\
+Axes & 14 & 6.770 & 0.329 & 0.528\\
+Distribution & 4 & 196.934 & 0.706 & 0.946\\
+Structure & 7 & 458.121 & 0.384 & 0.571\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Les valeurs brutes d'objectif ne sont pas directement comparables entre les cinq représentations, car elles ne reposent pas sur la même fonction de coût.
+
+\section{Architecture logicielle}
+Le projet est organisé de la manière suivante :
+\begin{itemize}
+\item \texttt{src/engine.py} : moteur itératif ;
+\item \texttt{src/representations.py} : cinq types de représentants ;
+\item \texttt{src/preprocessing.py} : standardisation ;
+\item \texttt{src/metrics.py} : silhouette et ARI ;
+\item \texttt{src/data.py} : génération des données synthétiques ;
+\item \texttt{app.py} : interface en ligne de commande ;
+\item \texttt{streamlit\_app.py} : interface graphique ;
+\item \texttt{tests/} : tests automatisés ;
+\item \texttt{experiments/} : script de reproduction des expériences.
+\end{itemize}
+
+\section{Utilisation}
+\begin{lstlisting}[language=bash]
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+
+python app.py --clusters 3 --representation points --n-prototypes 5
+python -m streamlit run streamlit_app.py
+python -m pytest -q
+\end{lstlisting}
+
+\section{Conclusion}
+Cette résolution met en oeuvre le principe itératif des Nuées Dynamiques de Diday tout en séparant clairement les éléments issus de la littérature et les choix propres au programme. L'utilisateur peut sélectionner une représentation ponctuelle, une nuée de prototypes, des axes factoriels, une distribution gaussienne diagonale ou une structure robuste. Le code est entièrement accessible dans le dépôt et peut être testé sans dépendre d'une bibliothèque externe de clustering.
+
+\begin{thebibliography}{99}
+\bibitem{diday1971} E. Diday, « Une nouvelle méthode en classification automatique et reconnaissance des formes : la méthode des nuées dynamiques », \emph{Revue de Statistique Appliquée}, 19(2), 19--33, 1971.
+\bibitem{macqueen1967} J. MacQueen, “Some Methods for Classification and Analysis of Multivariate Observations,” 1967.
+\bibitem{lloyd1982} S. P. Lloyd, “Least Squares Quantization in PCM,” \emph{IEEE Transactions on Information Theory}, 28(2), 129--137, 1982.
+\bibitem{gonzalez1985} T. F. Gonzalez, “Clustering to Minimize the Maximum Intercluster Distance,” \emph{Theoretical Computer Science}, 38, 293--306, 1985.
+\bibitem{pearson1901} K. Pearson, “On Lines and Planes of Closest Fit to Systems of Points in Space,” \emph{Philosophical Magazine}, 1901.
+\bibitem{bishop2006} C. M. Bishop, \emph{Pattern Recognition and Machine Learning}, Springer, 2006.
+\bibitem{tukey1977} J. W. Tukey, \emph{Exploratory Data Analysis}, Addison-Wesley, 1977.
+\bibitem{rousseeuw1987} P. J. Rousseeuw, “Silhouettes,” \emph{Journal of Computational and Applied Mathematics}, 20, 53--65, 1987.
+\bibitem{hubert1985} L. Hubert and P. Arabie, “Comparing Partitions,” \emph{Journal of Classification}, 2, 193--218, 1985.
+\end{thebibliography}
+
+\end{document}
