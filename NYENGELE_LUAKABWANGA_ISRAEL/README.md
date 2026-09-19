@@ -25,6 +25,20 @@ python -m pip install -r requirements.txt
 
 ## Ligne de commande
 
+Le programme peut fonctionner directement avec le jeu synthétique intégré :
+
+```bash
+python app.py --clusters 3 --representation points --n-prototypes 5
+```
+
+Pour générer le fichier `donnees.csv` et reproduire les résultats expérimentaux :
+
+```bash
+python experiments/run_experiments.py
+```
+
+Puis il est aussi possible de lancer :
+
 ```bash
 python app.py --input donnees.csv --clusters 3 --representation points --n-prototypes 5
 ```
@@ -50,6 +64,6 @@ python -m streamlit run streamlit_app.py
 python -m pytest -q
 ```
 
-## Références
+## Rapport et références
 
-Voir `REFERENCES.md`. Le rapport PDF complet est fourni séparément avec la remise.
+Le rapport LaTeX est disponible dans `report/rapport.tex`. Les sources scientifiques et la traçabilité des choix sont détaillées dans `REFERENCES.md`.
