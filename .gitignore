@@ -11,3 +11,5 @@ report/*.out
 report/*.toc
 report/*.fls
 report/*.fdb_latexmk
+.agents/
+.claude/
